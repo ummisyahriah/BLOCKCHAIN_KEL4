@@ -1,57 +1,40 @@
-from blockchain import Blockchain
+from block import Block
+from pow import proof_of_work
+from pos import proof_of_stake
+
+print("PROOF-OF-WORK")
+
+block = Block (
+    index=1,
+    data = {"id_pasien":"P-001",
+            "nama_pasien":"init",
+            "diagnosa":"Flu",
+            "dokter":"Dr. Smith"},
+    previous_hash = "0"
+)
+difficulty = 2
+
+print("\nData Block :", block.data)
+print("Difficulty   :", difficulty)
+
+proof_of_work(block, difficulty)
+print("Nonce       :", block.nonce)
+print("Hash        :", block.hash)
+
+print("\nPROOF-OF-STAKE")
+
+validators = {
+    "Rumah Sakit A": 70,
+    "Dokter": 10,
+    "Pasien": 10,
+    "Rumah Sakit B": 10
+}
+
+print("\nValidator:")
+for validator, stake in validators.items():
+    print(f"{validator}: {stake} stake")
+
+selected = proof_of_stake(validators)
+print("\nValidator terpilih:", selected)
 
 
-blockchain = Blockchain()
-
-
-# Rumah Sakit A membuat rekam medis pasien
-blockchain.add_block({
-    "record_id": "EHR-001",
-    "patient_id": "P001",
-    "activity": "Rekam medis dibuat",
-    "actor": "Rumah Sakit A",
-    "hospital": "Rumah Sakit A"
-})
-
-
-# Pasien memberikan izin akses data
-blockchain.add_block({
-    "record_id": "EHR-001",
-    "patient_id": "P001",
-    "activity": "Memberikan izin akses rekam medis",
-    "actor": "Pasien",
-    "permission": "Disetujui"
-})
-
-
-# Rumah Sakit B meminta akses rekam medis
-blockchain.add_block({
-    "record_id": "EHR-001",
-    "patient_id": "P001",
-    "activity": "Mengakses rekam medis pasien",
-    "actor": "Rumah Sakit B",
-    "permission_status": "Diizinkan oleh pasien"
-})
-
-
-# Dokter mengakses data pasien untuk pelayanan
-blockchain.add_block({
-    "record_id": "EHR-001",
-    "patient_id": "P001",
-    "activity": "Melihat rekam medis pasien",
-    "actor": "Dokter",
-    "purpose": "Pemeriksaan dan pelayanan kesehatan"
-})
-
-
-for block in blockchain.chain:
-
-    print("=" * 50)
-
-    print("INDEX :", block.index)
-    print("DATA  :", block.data)
-    print("PREV  :", block.previous_hash)
-    print("HASH  :", block.hash)
-
-
-print("\nBlockchain valid:", blockchain.is_valid())
