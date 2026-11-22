@@ -39,6 +39,9 @@ contract RekamMedis is ERC721URIStorage {
     mapping(uint256 => address) public rumahSakitSaatIni;
     mapping(uint256 => RekamMedisData[]) private riwayatPemeriksaan;
     mapping(uint256 => DataRujukan) public rujukan;
+    mapping(address => bool) public statusRumahSakit;
+    mapping(address => uint256[]) private daftarPasienRS;
+
     // Event
     event PasienTerdaftarkan(uint256 idPasien, address rumahSakit);
     event RujukanDiajukan(uint256 idPasien, address rumahSakitTujuan);
@@ -79,6 +82,7 @@ contract RekamMedis is ERC721URIStorage {
         pasienTerdaftar[idPasien] = true;
         namaPasienTerdaftar[idPasien] = namaPasien;
         rumahSakitSaatIni[idPasien] = msg.sender;
+        daftarPasienRS[msg.sender].push(idPasien);
 
         _buatRekamMedis(idPasien, diagnosa);
 
@@ -95,6 +99,9 @@ contract RekamMedis is ERC721URIStorage {
             msg.sender == rumahSakitSaatIni[idPasien], "Bukan rumah sakit saat ini");
         require(rumahSakitTujuan != address(0), "Alamat tidak valid");
         require(rumahSakitTujuan != msg.sender, "Tujuan tidak boleh sama");
+        require(
+        statusRumahSakit[rumahSakitTujuan],"Rumah sakit tidak tersedia"
+        );
 
         StatusRujukan status = rujukan[idPasien].status;
 
@@ -113,27 +120,53 @@ contract RekamMedis is ERC721URIStorage {
         emit RujukanDiajukan(idPasien, rumahSakitTujuan);
     }
     // 3. Menerima atau menolak rujukan
-    function tanggapiRujukan(
-        uint256 idPasien,
-        bool diterima
-    ) public {
-        require(
-            rujukan[idPasien].status == StatusRujukan.MENUNGGU, "Tidak ada rujukan yang menunggu");
-        require(
-            msg.sender == rujukan[idPasien].rumahSakitTujuan,"Bukan rumah sakit tujuan");
+    
+function tanggapiRujukan(
+    uint256 idPasien,
+    bool diterima
+) public {
+    require(
+        rujukan[idPasien].status == StatusRujukan.MENUNGGU,
+        "Tidak ada rujukan yang menunggu"
+    );
 
-        if (diterima) {
-            rujukan[idPasien].status = StatusRujukan.DITERIMA;
-            rumahSakitSaatIni[idPasien] = msg.sender;
-        } else {
-            rujukan[idPasien].status = StatusRujukan.DITOLAK;}
+    require(
+        msg.sender == rujukan[idPasien].rumahSakitTujuan,
+        "Bukan rumah sakit tujuan"
+    );
 
-        rujukan[idPasien].waktuKeputusan = block.timestamp;
+    if (diterima) {
+        rujukan[idPasien].status = StatusRujukan.DITERIMA;
 
-        emit RujukanDitanggapi(
-            idPasien,
-            rujukan[idPasien].status);
+        // Hapus pasien dari daftar rumah sakit asal
+        address rsAsal = rumahSakitSaatIni[idPasien];
+
+        for (uint256 i = 0; i < daftarPasienRS[rsAsal].length; i++) {
+            if (daftarPasienRS[rsAsal][i] == idPasien) {
+                daftarPasienRS[rsAsal][i] =
+                    daftarPasienRS[rsAsal][daftarPasienRS[rsAsal].length - 1];
+
+                daftarPasienRS[rsAsal].pop();
+                break;
+            }
+        }
+
+        // Masukkan pasien ke daftar rumah sakit tujuan
+        rumahSakitSaatIni[idPasien] = msg.sender;
+        daftarPasienRS[msg.sender].push(idPasien);
+
+    } else {
+        rujukan[idPasien].status = StatusRujukan.DITOLAK;
     }
+
+    rujukan[idPasien].waktuKeputusan = block.timestamp;
+
+    emit RujukanDitanggapi(
+        idPasien,
+        rujukan[idPasien].status
+    );
+}
+
     // 4. Memperbarui atau menambahkan diagnosa
     function updateDiagnosa(
         uint256 idPasien,
@@ -143,6 +176,7 @@ contract RekamMedis is ERC721URIStorage {
         require(
             msg.sender == rumahSakitSaatIni[idPasien],"Bukan rumah sakit saat ini"
         );
+        require(bytes(diagnosa).length > 0, "Diagnosa wajib diisi");
 
         _buatRekamMedis(idPasien, diagnosa);
 
@@ -191,5 +225,22 @@ contract RekamMedis is ERC721URIStorage {
         uint256 tokenId
     ) public view returns (address) {
         return ownerOf(tokenId);
+    }
+    function setStatusRumahSakit(
+        bool tersedia
+    ) public {
+        statusRumahSakit[msg.sender] = tersedia;
+    }
+    function cekStatusRumahSakit(
+        address alamatRS
+    ) public view returns (bool) {
+        return statusRumahSakit[alamatRS];
+    }
+    function lihatDaftarPasien()
+        public
+        view
+        returns (uint256[] memory)
+    {
+        return daftarPasienRS[msg.sender];
     }
 }
